@@ -11,4 +11,5 @@ testData:
   jwt-field: customer_id
   value-header-name: X-UserId-RateLimit
   fallback-type: ip
+  debug: true
 

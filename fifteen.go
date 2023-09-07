@@ -2,7 +2,9 @@ package traefikplugins
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -18,11 +20,12 @@ const (
 
 // Config the plugin configuration.
 type Config struct {
-	JwtHeaderName      string `json:"jwt-header-name,omitempty"`
-	JwtField           string `json:"jwt-field,omitempty"`
-	ValueHeaderName    string `json:"value-header-name,omitempty"`
-	FallbackType       string `json:"fallback-type,omitempty"`
-	FallbackHeaderName string `json:"fallback-header-name,omitempty"`
+	JwtHeaderName      string   `json:"jwt-header-name,omitempty"`
+	JwtField           string   `json:"jwt-field,omitempty"`
+	ValueHeaderName    string   `json:"value-header-name,omitempty"`
+	FallbackType       Fallback `json:"fallback-type,omitempty"`
+	FallbackHeaderName string   `json:"fallback-header-name,omitempty"`
+	Debug              bool     `json:"debug,omitempty"`
 }
 
 // CreateConfig creates the default plugin configuration.
@@ -47,35 +50,41 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 }
 
 func (a *Fifteen) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if rw.Header().Get(a.cfg.JwtHeaderName) == "" {
+	if req.Header.Get(a.cfg.JwtHeaderName) == "" {
+		a.logDebug("Empty jwt, falling back")
 		a.ServeFallback(rw, req)
 		return
 	}
 
-	rawToken := rw.Header().Get(a.cfg.JwtHeaderName)
-	parsedToken, _, err := jwt.NewParser().ParseUnverified(rawToken, nil)
+	rawToken := req.Header.Get(a.cfg.JwtHeaderName)
+	parsedToken, _, err := jwt.NewParser().ParseUnverified(rawToken, jwt.MapClaims{})
 	if err != nil {
+		a.logDebug("Could not parse non-empty jwt token, falling back: %s", err.Error())
 		a.ServeFallback(rw, req)
 		return
 	}
 
 	mapClaims := parsedToken.Claims.(jwt.MapClaims)
 	if newHeaderValue, hasValue := mapClaims[a.cfg.JwtField]; hasValue {
+		a.logDebug("JWT value on field %s was %v (of type %T)", a.cfg.JwtField, newHeaderValue, newHeaderValue)
 		switch val := newHeaderValue.(type) {
 		case string:
-			rw.Header().Set(a.cfg.ValueHeaderName, val)
+			req.Header.Set(a.cfg.ValueHeaderName, val)
 		case []string:
 			if len(val) > 0 {
-				rw.Header().Set(a.cfg.ValueHeaderName, val[0])
+				req.Header.Set(a.cfg.ValueHeaderName, val[0])
 			} else {
+				a.logDebug("JWT field value was an empty array, falling back")
 				a.ServeFallback(rw, req)
 				return
 			}
 		default:
+			a.logDebug("JWT field value has an unexpected type, falling back")
 			a.ServeFallback(rw, req)
 			return
 		}
 	} else {
+		a.logDebug("JWT field value has an unexpected type, falling back")
 		a.ServeFallback(rw, req)
 		return
 	}
@@ -84,14 +93,22 @@ func (a *Fifteen) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Fifteen) ServeFallback(rw http.ResponseWriter, req *http.Request) {
+	a.logDebug("Fallbacked because JWT was not set, invalid or has unexpected value on field. Using fallback strategy: %s", a.cfg.FallbackType)
 	switch a.cfg.FallbackType {
-	case string(FallbackError):
+	case FallbackError:
 		rw.WriteHeader(http.StatusBadRequest)
-	case string(FallbackIp):
-		rw.Header().Set(a.cfg.ValueHeaderName, req.RemoteAddr)
-	case string(FallbackHeader):
-		rw.Header().Set(a.cfg.ValueHeaderName, req.Header.Get(a.cfg.FallbackHeaderName))
+	case FallbackIp:
+		req.Header.Set(a.cfg.ValueHeaderName, req.RemoteAddr)
+	case FallbackHeader:
+		req.Header.Set(a.cfg.ValueHeaderName, req.Header.Get(a.cfg.FallbackHeaderName))
 	default:
 		a.next.ServeHTTP(rw, req)
 	}
+}
+
+func (a *Fifteen) logDebug(format string, args ...any) {
+	if !a.cfg.Debug {
+		return
+	}
+	os.Stderr.WriteString("[Fifteen middleware]: " + fmt.Sprintf(format, args...) + "\n")
 }
