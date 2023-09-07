@@ -1,4 +1,4 @@
-package traefikplugins
+package traefik_plugins
 
 import (
 	"context"
