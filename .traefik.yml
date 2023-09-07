@@ -1,0 +1,14 @@
+displayName: Fifteen
+type: middleware
+iconPath: .assets/icon.png
+
+import: github.com/birotaio/traefik-plugins
+
+summary: 'Make custom header from JWT data, can be used for user-based ratelimiting'
+
+testData:
+  jwt-header-name: X-ApiKey
+  jwt-field: customer_id
+  value-header-name: X-UserId-RateLimit
+  fallback-type: ip
+
