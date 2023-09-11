@@ -12,7 +12,9 @@ func TestDemo(t *testing.T) {
 	cfg.JwtHeaderName = "X-ApiKey"
 	cfg.JwtField = "customer_id"
 	cfg.ValueHeaderName = "X-UserId-RateLimit"
-	cfg.FallbackType = FallbackIp
+	cfg.Fallbacks = []Fallback{
+		{Type: FallbackIp},
+	}
 	cfg.Debug = false
 
 	ctx := context.Background()
