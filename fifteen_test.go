@@ -42,7 +42,7 @@ func TestDemo(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.RemoteAddr = "1.2.3.4"
-	req.Header.Set(cfg.JwtHeaderName, "invalid")
+	req.Header.Set(cfg.JwtHeaderName, "Bearer invalid")
 	handler.ServeHTTP(recorder, req)
 	assertHeader(t, req, "X-UserId-RateLimit", "1.2.3.4")
 
@@ -52,7 +52,7 @@ func TestDemo(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.RemoteAddr = "1.2.3.4"
-	req.Header.Set(cfg.JwtHeaderName, "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJUZXN0IGlzc3VlciIsImlhdCI6MTY5NDA5ODQ3NiwiZXhwIjoxNzI1NjM0NDc2LCJhdWQiOiIiLCJzdWIiOiIifQ.898seJ3c8Quryhtwwt_66m_iJQwRVCtt216l1KOhBp8")
+	req.Header.Set(cfg.JwtHeaderName, "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJUZXN0IGlzc3VlciIsImlhdCI6MTY5NDA5ODQ3NiwiZXhwIjoxNzI1NjM0NDc2LCJhdWQiOiIiLCJzdWIiOiIifQ.898seJ3c8Quryhtwwt_66m_iJQwRVCtt216l1KOhBp8")
 	handler.ServeHTTP(recorder, req)
 	assertHeader(t, req, "X-UserId-RateLimit", "1.2.3.4")
 
@@ -62,7 +62,7 @@ func TestDemo(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.RemoteAddr = "1.2.3.4"
-	req.Header.Set(cfg.JwtHeaderName, "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJUZXN0IGlzc3VlciIsImlhdCI6MTY5NDA5NzQzMywiZXhwIjoxNzI1NjMzNDMzLCJhdWQiOiIiLCJzdWIiOiIiLCJjdXN0b21lcl9pZCI6InNvbWVfdXNlcl9pZCJ9.MuJhmnrPeEsDqcnz3PnTGnY5Z5Zu2nna9FjQF0Me9qU")
+	req.Header.Set(cfg.JwtHeaderName, "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJUZXN0IGlzc3VlciIsImlhdCI6MTY5NDA5NzQzMywiZXhwIjoxNzI1NjMzNDMzLCJhdWQiOiIiLCJzdWIiOiIiLCJjdXN0b21lcl9pZCI6InNvbWVfdXNlcl9pZCJ9.MuJhmnrPeEsDqcnz3PnTGnY5Z5Zu2nna9FjQF0Me9qU")
 	handler.ServeHTTP(recorder, req)
 	assertHeader(t, req, "X-UserId-RateLimit", "some_user_id")
 }
