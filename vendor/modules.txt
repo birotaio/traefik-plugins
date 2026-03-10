@@ -1,6 +1,19 @@
 # github.com/golang-jwt/jwt/v5 v5.2.2
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
+# github.com/mailgun/minheap v0.0.0-20170619185613-3dbe6c6bf55f
+## explicit
+github.com/mailgun/minheap
+# github.com/mailgun/timetools v0.0.0-20170619190023-f3a7b8ffff47
+## explicit
+github.com/mailgun/timetools
+# github.com/mailgun/ttlmap v0.0.0-20170619185759-c1c17f74874f
+## explicit
+github.com/mailgun/ttlmap
 # golang.org/x/time v0.14.0
 ## explicit; go 1.24.0
 golang.org/x/time/rate
+# gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
+## explicit
+gopkg.in/mgo.v2/bson
+gopkg.in/mgo.v2/internal/json

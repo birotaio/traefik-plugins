@@ -7,10 +7,10 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/mailgun/ttlmap"
 	"golang.org/x/time/rate"
 )
 
@@ -39,7 +39,7 @@ type Config struct {
 	// Average is the rate limit in requests per second. 0 disables rate limiting.
 	Average int `yaml:"average,omitempty"`
 	// Burst is the maximum burst size above the average.
-	Burst int `yaml:"burst,omitempty"`
+	Burst int  `yaml:"burst,omitempty"`
 	Debug bool `yaml:"debug,omitempty"`
 }
 
@@ -48,79 +48,86 @@ func CreateConfig() *Config {
 	return &Config{}
 }
 
-const bucketTTL = 5 * time.Minute
-
-// bucket holds a rate limiter and the time it was last used.
-type bucket struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
-}
+const maxSources = 65536
 
 // Fifteen a Fifteen plugin.
 type Fifteen struct {
-	next    http.Handler
-	cfg     *Config
-	name    string
-	mu      sync.RWMutex
-	buckets map[string]*bucket
+	next     http.Handler
+	cfg      *Config
+	name     string
+	rtl      rate.Limit
+	maxDelay time.Duration
+	ttl      int
+	buckets  *ttlmap.TtlMap
 }
 
 // New created a new Fifteen plugin.
 func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	f := &Fifteen{
-		cfg:     config,
-		next:    next,
-		name:    name,
-		buckets: make(map[string]*bucket),
+	buckets, err := ttlmap.NewConcurrent(maxSources)
+	if err != nil {
+		return nil, fmt.Errorf("creating ttlmap: %w", err)
 	}
-	if config.Average > 0 {
-		go f.cleanupLoop(ctx)
-	}
-	return f, nil
-}
 
-// cleanupLoop periodically removes buckets that haven't been used for bucketTTL.
-func (a *Fifteen) cleanupLoop(ctx context.Context) {
-	ticker := time.NewTicker(bucketTTL)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			a.mu.Lock()
-			for key, b := range a.buckets {
-				if time.Since(b.lastSeen) > bucketTTL {
-					delete(a.buckets, key)
-				}
-			}
-			a.mu.Unlock()
+	// Initialized at rate.Inf to enforce no rate limiting when config.Average == 0.
+	rtl := float64(rate.Inf)
+	var maxDelay time.Duration
+
+	if config.Average > 0 {
+		rtl = float64(config.Average)
+		if rtl < 1 {
+			maxDelay = 500 * time.Millisecond
+		} else {
+			maxDelay = time.Second / (time.Duration(rtl) * 2)
 		}
 	}
+
+	ttl := 1
+	if rtl >= 1 {
+		ttl++
+	} else if rtl > 0 {
+		ttl += int(1 / rtl)
+	}
+
+	return &Fifteen{
+		cfg:      config,
+		next:     next,
+		name:     name,
+		rtl:      rate.Limit(rtl),
+		maxDelay: maxDelay,
+		ttl:      ttl,
+		buckets:  buckets,
+	}, nil
 }
 
-// allow returns true if the request with the given key is within the rate limit.
-func (a *Fifteen) allow(key string) bool {
-	if a.cfg.Average <= 0 {
-		return true
+// allow returns nil if the request is rate-limited, otherwise the delay to wait.
+func (a *Fifteen) allow(key string) *time.Duration {
+	var limiter *rate.Limiter
+	if rlSource, exists := a.buckets.Get(key); exists {
+		limiter = rlSource.(*rate.Limiter)
+	} else {
+		burst := a.cfg.Burst
+		if burst <= 0 {
+			burst = a.cfg.Average
+		}
+		limiter = rate.NewLimiter(a.rtl, burst)
 	}
 
-	burst := a.cfg.Burst
-	if burst <= 0 {
-		burst = a.cfg.Average
+	// Set even when exists to update the expiry time on every activity.
+	if err := a.buckets.Set(key, limiter, a.ttl); err != nil {
+		return nil
 	}
 
-	a.mu.Lock()
-	b, ok := a.buckets[key]
-	if !ok {
-		b = &bucket{limiter: rate.NewLimiter(rate.Limit(a.cfg.Average), burst)}
-		a.buckets[key] = b
+	res := limiter.Reserve()
+	if !res.OK() {
+		return nil
 	}
-	b.lastSeen = time.Now()
-	limiter := b.limiter
-	a.mu.Unlock()
 
-	return limiter.Allow()
+	delay := res.Delay()
+	if delay > a.maxDelay {
+		res.Cancel()
+	}
+
+	return &delay
 }
 
 func (a *Fifteen) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -229,10 +236,18 @@ func (a *Fifteen) end(rw http.ResponseWriter, req *http.Request) {
 	a.logDebug("ending with request headers: %+v", req.Header)
 
 	key := req.Header.Get(a.cfg.ValueHeaderName)
-	if key != "" && !a.allow(key) {
-		a.logDebug("Rate limit exceeded for key %s", key)
-		rw.WriteHeader(http.StatusTooManyRequests)
-		return
+	if key != "" && a.cfg.Average > 0 {
+		delay := a.allow(key)
+		if delay == nil {
+			a.logDebug("Rate limit exceeded for key %s", key)
+			rw.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		if *delay > a.maxDelay {
+			a.logDebug("Rate limit delay too high for key %s: %s", key, delay)
+			rw.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
 	}
 
 	a.next.ServeHTTP(rw, req)
