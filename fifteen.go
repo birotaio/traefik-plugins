@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/mailgun/ttlmap"
 	"golang.org/x/time/rate"
 )
 
@@ -58,12 +57,12 @@ type Fifteen struct {
 	rtl      rate.Limit
 	maxDelay time.Duration
 	ttl      int
-	buckets  *ttlmap.TtlMap
+	buckets  *TtlMap
 }
 
 // New created a new Fifteen plugin.
 func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	buckets, err := ttlmap.NewConcurrent(maxSources)
+	buckets, err := newTtlMap(maxSources)
 	if err != nil {
 		return nil, fmt.Errorf("creating ttlmap: %w", err)
 	}
