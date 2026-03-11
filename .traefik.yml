@@ -12,5 +12,7 @@ testData:
   valueHeaderName: X-UserId-RateLimit
   fallbacks:
     - type: ip
+  excludedPaths:
+    - /assets/*
   debug: true
 

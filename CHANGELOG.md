@@ -1,3 +1,7 @@
+## 1.1.0 (2026-03-03)
+
+  - Updated app to support exclude path
+
 ## 1.0.1 (2025-04-18)
 
   - Fixed package to include .traefik.yml file

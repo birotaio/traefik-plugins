@@ -12,6 +12,9 @@ This middleware will add the JWT field as header value to the request or if the 
   jwtHeaderName: Authorization # Name of the header that contains the JWT
   jwtField: customer_id # Name of the JWT field that will be used as header value
   valueHeaderName: X-Rate-Limit # Name of the header that will be added to the request
+  excludedPaths: # List of glob patterns for paths to bypass the plugin entirely
+    - /assets/*
+    - /favicon.ico
   fallbacks: # List of fallback strategies
     - type: header # Type of the fallback strategy, one of: header, ip, pass, error
       value: x-apikey # For the header strategy, the name of the header that will be used as header value
