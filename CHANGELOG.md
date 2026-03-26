@@ -1,3 +1,7 @@
+## 1.2.0 (2026-03-26)
+
+  - Added `AllowedIps` [#SVC-19637]
+
 ## 1.1.1 (2026-03-11)
 
   - Fixed vendor libs

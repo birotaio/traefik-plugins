@@ -35,6 +35,7 @@ type Config struct {
 	ValueHeaderName string     `yaml:"valueHeaderName,omitempty"`
 	Fallbacks       []Fallback `yaml:"fallbacks,omitempty"`
 	ExcludedPaths   []string   `yaml:"excludedPaths,omitempty"`
+	AllowedIps      []string   `yaml:"allowedIps,omitempty"`
 	// Average is the rate limit in requests per second. 0 disables rate limiting.
 	Average int `yaml:"average,omitempty"`
 	// Burst is the maximum burst size above the average.
@@ -130,6 +131,14 @@ func (a *Fifteen) allow(key string) *time.Duration {
 }
 
 func (a *Fifteen) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	for _, allowedIp := range a.cfg.AllowedIps {
+		if ipWithNoPort(req.RemoteAddr) == allowedIp {
+			a.logDebug("Remote address %s is in allowed IPs, passing through", req.RemoteAddr)
+			a.next.ServeHTTP(rw, req)
+			return
+		}
+	}
+
 	for _, pattern := range a.cfg.ExcludedPaths {
 		if matched, _ := path.Match(pattern, req.URL.Path); matched {
 			a.logDebug("Path %s matches excluded pattern %s, passing through", req.URL.Path, pattern)

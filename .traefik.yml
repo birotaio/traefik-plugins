@@ -4,7 +4,7 @@ iconPath: .assets/icon.png
 
 import: github.com/birotaio/traefik-plugins
 
-summary: 'Make custom header from JWT data, can be used for user-based ratelimiting'
+summary: "Make custom header from JWT data, can be used for user-based ratelimiting"
 
 testData:
   jwtHeaderName: X-ApiKey
@@ -14,5 +14,6 @@ testData:
     - type: ip
   excludedPaths:
     - /assets/*
+  allowedIps:
+    - 127.0.0.1
   debug: true
-
