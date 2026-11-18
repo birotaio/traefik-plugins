@@ -1,0 +1,22 @@
+name: Build and test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  id-token: write
+  statuses: write
+  contents: read
+  actions: read
+
+jobs:
+  pr:
+    uses: birotaio/gh-action-workflows/.github/workflows/pr-unified.yaml@v2
+    with:
+      workflow_version: v2
+      paths: '.:traefik-plugins'
+      linting: true
+      vendir_sync: false
+      build_container_image: eu.gcr.io/birota-cloud/gha-image-backend:1.0.6
+      release_container_image: eu.gcr.io/birota-cloud/gha-image-backend:1.0.6
