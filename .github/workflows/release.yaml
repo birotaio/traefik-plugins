@@ -1,0 +1,22 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  id-token: write
+  statuses: write
+  contents: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  release:
+    uses: birotaio/gh-action-workflows/.github/workflows/release-unified.yaml@v2
+    with:
+      workflow_version: v2
+      paths: '.:traefik-plugins'
+      vendir_sync: false
+      release_message: true
+      release_container_image: eu.gcr.io/birota-cloud/gha-image-backend:1.0.6

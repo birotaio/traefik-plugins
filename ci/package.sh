@@ -1,4 +1,6 @@
-pushd $SOURCE_FOLDER
-cp -r . $TMPFOLDER
-export INCLUDE_HIDDEN_LIST=".traefik.yml"
-popd
+(
+  set -o pipefail
+  git -C "$SOURCE_FOLDER" ls-files -z -- '*.go' go.mod go.sum .traefik.yml vendor LICENSE |
+    tar -C "$SOURCE_FOLDER" --null -T - -cf - |
+    tar -C "$TMPFOLDER" -xf -
+)
